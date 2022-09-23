@@ -19,7 +19,7 @@
 module Cleanse
   def self.cleanse(vrp, solution)
     return unless solution
-
+    
     cleanse_empties_fills(vrp, solution)
     cleanse_duplicate_empties_fills(vrp, solution)
     # cleanse_empty_routes(result)
@@ -108,12 +108,22 @@ module Cleanse
         count_services[stop.service_id] += 1 if count_services.key?(stop.service_id)
       }
     }
-
+    
     # remove duplicated unused empties or fills from unassigned
     solution.unassigned_stops.delete_if{ |a|
       if count_services.key?(a.service_id)
         count_services[a.service_id] += 1
         true if count_services[a.service_id] > 1
+      end
+    }
+    solution.routes.each{ |route|
+      if route.stops.map{ |s| s.activity.point_id}.uniq.size == 1 
+      route.stops.map{ |stop|
+        if stop.loads&.first&.quantity&.empty
+          add_unnassigned(solution.unassigned_stops, stop, 'Unnecessary empty stop.')
+          route.stops.delete(stop)
+        end
+      }
       end
     }
   end
