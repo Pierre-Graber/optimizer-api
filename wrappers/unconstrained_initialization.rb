@@ -18,6 +18,7 @@
 require './wrappers/wrapper'
 require './wrappers/ortools_vrp_pb'
 require './wrappers/ortools_result_pb'
+# extends the Ortools class and call wrapper.py
 module Wrappers
   class UnconstrainedInitialization < Ortools
     def initialize(hash = {})
