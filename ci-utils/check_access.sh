@@ -6,6 +6,4 @@ rsync -a ci-tmp/* ./ci-utils
 # shellcheck disable=SC1091
 source ./ci-utils/utils.sh
 
-slacks "*ERROR* ${slack_users}, *access.rb* is managed by optimizer-conf project, the change has to be done there." "${SLACK_CHANNELS}"
-
 exit 1

@@ -553,6 +553,7 @@ module OptimizerWrapper
         end
 
         waiting_times = solution.routes.map{ |route| route.info.total_waiting_time }.compact
+        
         durations =
           solution.routes.map{ |route|
             route.stops.map{ |stop|
