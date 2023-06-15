@@ -19,9 +19,9 @@
 module Filters
   def self.filter(vrp)
     merge_timewindows(vrp)
-    unless vrp.configuration.resolution.strict_skills
-      filter_skills(vrp)
-    end
+
+    filter_skills(vrp)
+
     # calculate_unit_precision # TODO: treat only input vrp, not all models in memory from other vrps
     nil
   end
