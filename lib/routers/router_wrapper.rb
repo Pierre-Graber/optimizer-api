@@ -29,9 +29,42 @@ module Routers
       @api_key = api_key
     end
 
+    def authenticate()
+      token_request_url = ENV["ROUTER_TOKEN_REQUEST_URL"] || "https://identity.dev.woopit.fr/auth/realms/woopit/protocol/openid-connect/token"
+      token_params =  {
+        grant_type: 'client_credentials',
+        client_id: ENV["ROUTER_2_CLIENT_ID"],
+        client_secret: ENV["ROUTER_2_SECRET_ID"]
+      }
+
+      RestClient.post(token_request_url, token_params) do |response|
+        token_response = response
+        access_token = JSON.parse(token_response.body)['access_token']
+        return access_token
+      end
+
+
+    end
+
     def compute_batch(url, mode, dimension, segments, polyline, options = {})
       results = {}
       nocache_segments = []
+      call_router_v2 = false
+
+      if ["truck", "car_here", "scooter"].include?(mode.to_s)   
+        call_router_v2 = true
+        access_token = authenticate()
+        headers = {
+          :Authorization => "Bearer #{access_token}",
+          :client_id => ENV["ROUTER_2_CLIENT_ID"],
+          :secret_id => ENV["ROUTER_2_SECRET_ID"]
+        }
+        url = ENV["ROUTER_2_URL"] || "https://router.dev.woopit.fr"
+      else 
+        headers = {}
+      end
+
+      
       segments.each{ |s|
         key_segment = ['c', url, mode, dimension, Digest::MD5.hexdigest(Marshal.dump([s, options.to_a.sort_by{ |i| i[0].to_s }]))]
         request_segment = @cache_request.read key_segment
@@ -43,11 +76,25 @@ module Routers
       }
       if !nocache_segments.empty?
         format = polyline ? 'json' : 'geojson'
-        nocache_segments.each_slice(50){ |slice_segments|
+        if ['json', 'geojson'].include?(format) 
+          geojson = true
+        else
+          geojson = false
+        end
+
+        if call_router_v2 == true
+          log "Calling Router v2"
+          resource = RestClient::Resource.new(url + "/routes", timeout: nil)
+        else
+          log "Calling Router v1"
           resource = RestClient::Resource.new(url + "/routes.#{format}", timeout: nil)
-          request = resource.post(params(mode, dimension, options).merge({
+        end
+
+
+        nocache_segments.each_slice(50){ |slice_segments|
+          request = resource.post(params(mode, dimension, options, geojson).merge({
             locs: slice_segments.collect{ |segment| segment.join(',') }.join('|')
-          })) { |response, _request, result, &_block|
+          }), headers) { |response, _request, result, &_block|
             case response.code
             when 200
               response
@@ -108,13 +155,27 @@ module Routers
 
       key = ['m', url, mode, dimensions, Digest::MD5.hexdigest(Marshal.dump([row, column, options.to_a.sort_by{ |i| i[0].to_s }]))]
 
+      if ["truck", "car_here", "scooter"].include?(mode.to_s)   
+        access_token = authenticate()
+        headers = {
+          :Authorization => "Bearer #{access_token}",
+          :client_id => ENV["ROUTER_2_CLIENT_ID"],
+          :secret_id => ENV["ROUTER_2_SECRET_ID"]
+        }
+        url = ENV["ROUTER_2_URL"] || "https://router.dev.woopit.fr"
+        log "Calling Router v2"
+      else 
+        headers = {}
+        log "Calling Router v1"
+      end
+
       request = @cache_request.read(key)
       if !request
         resource = RestClient::Resource.new(url + '/matrix.json', timeout: nil)
         request = resource.post(params(mode, dimensions.join('_'), options).merge({
           src: row.flatten.join(','),
           dst: row != column ? column.flatten.join(',') : nil,
-        }.compact)) { |response, _request, result, &_block|
+        }.compact), headers) { |response, _request, result, &_block|
           case response.code
           when 200
             response
@@ -146,6 +207,17 @@ module Routers
 
     def isoline(url, mode, dimension, lat, lng, size, options = {})
       key = ['i', url, mode, dimension, Digest::MD5.hexdigest(Marshal.dump([lat, lng, size, options.to_a.sort_by{ |i| i[0].to_s }]))]
+      if ["truck", "car_here", "scooter"].include?(mode.to_s)   
+        access_token = authenticate()
+        headers = {
+          :Authorization => "Bearer #{access_token}",
+          :client_id => ENV["ROUTER_2_CLIENT_ID"],
+          :secret_id => ENV["ROUTER_2_SECRET_ID"]
+        }
+        url = ENV["ROUTER_2_URL"] | "https://router.dev.woopit.fr"
+      else 
+        headers = {}
+      end
 
       request = @cache_request.read(key)
       if !request
@@ -186,7 +258,7 @@ module Routers
 
     private
 
-    def params(mode, dimension, options)
+    def params(mode, dimension, options, geojson = false)
       {
         api_key: @api_key,
         mode: mode,
@@ -209,7 +281,8 @@ module Routers
         max_walk_distance: options[:max_walk_distance],
         approach: options[:approach],
         snap: options[:snap],
-        strict_restriction: options[:strict_restriction] || false
+        strict_restriction: options[:strict_restriction] || false,
+        geojson: geojson,
       }.compact
     end
   end

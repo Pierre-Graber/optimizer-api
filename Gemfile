@@ -54,6 +54,9 @@ gem 'rgeo-geojson', require: 'rgeo/geo_json'
 
 gem 'sentry-raven'
 
+# authentification
+gem 'oauth2'
+
 group :development, :test do
   gem 'benchmark-ips' # to in-place benchmark of different implementations
   gem 'byebug'

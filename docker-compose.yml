@@ -24,6 +24,10 @@ x-default-environment: &default-environment
   ROUTER_API_KEY: ${ROUTER_API_KEY:-demo}
   ROUTER_URL: ${ROUTER_URL:-http://localhost:4899/0.1}
   SENTRY_DSN: ${SENTRY_DSN}
+  ROUTER_2_CLIENT_ID: ${ROUTER_2_CLIENT_ID:-optim_v1}
+  ROUTER_2_SECRET_ID: ${ROUTER_2_SECRET_ID:-WSqRKOeSeXUeIrbsdKgU93ZPPD6kNMvE}
+  ROUTER_2_URL: ${ROUTER_2_URL:-https://router.dev.woopit.fr}
+  ROUTER_TOKEN_REQUEST_URL:  ${ROUTER_TOKEN_REQUEST_URL:-https://identity.dev.woopit.fr/auth/realms/woopit/protocol/openid-connect/token}
 
 x-environment-resque: &environment-resque
   <<: *default-environment

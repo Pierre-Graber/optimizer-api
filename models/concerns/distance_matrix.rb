@@ -64,10 +64,10 @@ module DistanceMatrix
         log "matrix computation #{matrix_points.size}x#{matrix_points.size} (#{dist} km) "\
             "-- #{services.size} services, #{vehicles.size} vehicles"
 
-        Api::V01::APIBase.dump_vrp_dir.write(
-          "#{job_id}_requests.curl", router.send('params', mode, dimensions.join('_'), options)
-          .merge({ src: matrix_points.flatten.join(',') }.compact).to_json + "\n", { mode: 'a', gz: false }
-        )
+        # Api::V01::APIBase.dump_vrp_dir.write(
+        #   "#{job_id}_requests.curl", router.send('params', mode, dimensions.join('_'), options)
+        #   .merge({ src: matrix_points.flatten.join(',') }.compact).to_json + "\n", { mode: 'a', gz: false }
+        # )
 
         tic = Time.now
         router_matrices = router.matrix(OptimizerWrapper.config[:router][:url],
