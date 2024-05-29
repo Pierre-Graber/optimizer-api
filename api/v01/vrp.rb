@@ -114,7 +114,6 @@ module Api
             Raven.user_context(api_key: params[:api_key]) # Filtered in sentry if user_context
 
             vrp_params = d_params[:points] ? d_params : d_params[:vrp]
-            APIBase.dump_vrp_dir.write([key_print, vrp_params[:name] || "no_vrp_name", checksum].compact.join('_'), d_params.to_json) if OptimizerWrapper.config[:dump][:vrp]
 
             Raven.extra_context(vrp_name: vrp_params[:name])
 
@@ -137,6 +136,7 @@ module Api
             else
               vrp.router = OptimizerWrapper.router(OptimizerWrapper.access[api_key][:router_api_key] || profile[:router_api_key]) if OptimizerWrapper.access[api_key][:router_api_key] || profile[:router_api_key]
               ret = OptimizerWrapper.wrapper_vrp(api_key, profile, vrp, checksum)
+              APIBase.dump_vrp_dir.write([key_print, "job_id", ret, vrp_params[:name] || "no_vrp_name", checksum].compact.join('_'), d_params.to_json) if OptimizerWrapper.config[:dump][:vrp]
               count_incr :optimize, transactions: vrp.transactions
               if ret.is_a?(String)
                 status 201
