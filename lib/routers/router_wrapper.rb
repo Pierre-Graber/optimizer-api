@@ -145,58 +145,52 @@ module Routers
         }
       end
     end
-
+    
     def matrix(url, mode, dimensions, row, column, options = {})
-      if row.empty? || column.empty?
-        return [[] * row.size] * column.size
-      elsif row.size == 1 && row == column
-        return dimensions.map{ |d| [[0]] }
-      end
-
-      key = ['m', url, mode, dimensions, Digest::MD5.hexdigest(Marshal.dump([row, column, options.to_a.sort_by{ |i| i[0].to_s }]))]
-
-      if ["truck", "car_here", "scooter"].include?(mode.to_s)   
-        access_token = authenticate()
-        headers = {
-          :Authorization => "Bearer #{access_token}",
-          :client_id => ENV["ROUTER_2_CLIENT_ID"],
-          :secret_id => ENV["ROUTER_2_SECRET_ID"]
-        }
-        url = ENV["ROUTER_2_URL"] || "https://router.dev.woopit.fr"
-        log "Calling Router v2"
-      else 
-        headers = {}
-        log "Calling Router v1"
-      end
-
+      return [[] * row.size] * column.size if row.empty? || column.empty?
+      return dimensions.map { |d| [[0]] } if row.size == 1 && row == column
+    
+      key = ['m', url, mode, dimensions, Digest::MD5.hexdigest(Marshal.dump([row, column, options.to_a.sort_by { |i| i[0].to_s }]))]
+    
       request = @cache_request.read(key)
       if !request
         resource = RestClient::Resource.new(url + '/matrix.json', timeout: nil)
-        request = resource.post(params(mode, dimensions.join('_'), options).merge({
-          src: row.flatten.join(','),
-          dst: row != column ? column.flatten.join(',') : nil,
-        }.compact), headers) { |response, _request, result, &_block|
-          case response.code
-          when 200
-            response
-          # Disable to get info when no matrice is returned
-          # when 417
-          #   ''
-          else
-            response = (response && /json/.match(response.headers[:content_type]) && response.size > 1) ? JSON.parse(response) : nil
-            raise RouterError.new(result.message + (response && response['message'] ? ' - ' + response['message'] : ''))
+        max_retries = 3
+        retries = 0
+    
+        begin
+          request = resource.post(params(mode, dimensions.join('_'), options).merge({
+            src: row.flatten.join(','),
+            dst: row != column ? column.flatten.join(',') : nil,
+          }.compact)) do |response, _request, result, &_block|
+            case response.code
+            when 200
+              response
+            else
+              response = (response && /json/.match(response.headers[:content_type]) && response.size > 1) ? JSON.parse(response) : nil
+              raise RouterError.new(result.message + (response && response['message'] ? ' - ' + response['message'] : ''))
+            end
           end
-        }
-
-        @cache_request.write(key, request && request.to_s)
+    
+          @cache_request.write(key, request && request.to_s)
+    
+        rescue StandardError => e
+          retries += 1
+          if retries < max_retries
+            sleep(2 ** retries)  # Backoff exponentiel
+            retry
+          else
+            raise "Failed after #{max_retries} attempts: #{e.message}"
+          end
+        end
       end
-
+    
       unless request.to_s.empty?
         data = JSON.parse(request)
-        dimensions.collect{ |dim|
+        dimensions.collect { |dim|
           if data.has_key?("matrix_#{dim}")
-            data["matrix_#{dim}"].collect{ |r|
-              r.collect{ |rr|
+            data["matrix_#{dim}"].collect { |r|
+              r.collect { |rr|
                 rr || 2147483647
               }
             }
