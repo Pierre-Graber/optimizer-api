@@ -145,8 +145,8 @@ module Routers
         }
       end
     end
-    
-    def matrix(url, mode, dimensions, row, column, options = {})
+
+    def matrix(url, mode, dimensions, row, column, options = {}, name)
       return [[] * row.size] * column.size if row.empty? || column.empty?
       return dimensions.map { |d| [[0]] } if row.size == 1 && row == column
     
@@ -157,12 +157,28 @@ module Routers
         resource = RestClient::Resource.new(url + '/matrix.json', timeout: nil)
         max_retries = 3
         retries = 0
+        router_version = "v1"
+        if ["truck", "car_here", "scooter"].include?(mode.to_s)   
+          router_version = "v2"
+          access_token = authenticate()
+          headers = {
+            :Authorization => "Bearer #{access_token}",
+            :client_id => ENV["ROUTER_2_CLIENT_ID"],
+            :secret_id => ENV["ROUTER_2_SECRET_ID"]
+          }
+          url = ENV["ROUTER_2_URL"] || "https://router.dev.woopit.fr"
+        else 
+          headers = {}
+        end
     
         begin
+          name = name.to_s.split(/[_ ]/).first
+          log "Calling Router #{router_version} with asset #{name}"
           request = resource.post(params(mode, dimensions.join('_'), options).merge({
             src: row.flatten.join(','),
             dst: row != column ? column.flatten.join(',') : nil,
-          }.compact)) do |response, _request, result, &_block|
+            asset: name
+          }.compact),headers) do |response, _request, result, &_block|
             case response.code
             when 200
               response
@@ -171,7 +187,7 @@ module Routers
               raise RouterError.new(result.message + (response && response['message'] ? ' - ' + response['message'] : ''))
             end
           end
-    
+      
           @cache_request.write(key, request && request.to_s)
     
         rescue StandardError => e
@@ -208,7 +224,7 @@ module Routers
           :client_id => ENV["ROUTER_2_CLIENT_ID"],
           :secret_id => ENV["ROUTER_2_SECRET_ID"]
         }
-        url = ENV["ROUTER_2_URL"] | "https://router.dev.woopit.fr"
+        url = ENV["ROUTER_2_URL"] || "https://router.dev.woopit.fr"
       else 
         headers = {}
       end
@@ -257,7 +273,7 @@ module Routers
         api_key: @api_key,
         mode: mode,
         dimension: dimension,
-        traffic: options[:traffic],
+        traffic: false,
         departure: options[:departure],
         speed_multiplier: options[:speed_multiplier] == 1 ? nil : options[:speed_multiplier],
         area: options[:area] ? options[:area].collect{ |a| a.join(',') }.join('|') : nil,

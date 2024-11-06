@@ -1465,11 +1465,11 @@ module Interpreters
               " #{locations.size}x#{vehicle_end_locations.size}"
           if vehicle_start_locations.any?
             time_matrix_from_depot = vrp.router.matrix(OptimizerWrapper.config[:router][:url], :car, [:time],
-                                                       vehicle_start_locations, locations).first
+                                                       vehicle_start_locations, locations, {}, vrp.name).first
           end
           if vehicle_end_locations.any?
             time_matrix_to_depot = vrp.router.matrix(OptimizerWrapper.config[:router][:url], :car, [:time],
-                                                     locations, vehicle_end_locations).first
+                                                     locations, vehicle_end_locations, {}, vrp.name).first
           end
           log "matrix computed in #{(Time.now - tic).round(2)} seconds"
 

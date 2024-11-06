@@ -38,6 +38,8 @@ module OptimizerWrapper
     apply_zones(vrp)
     adjust_vehicles_duration(vrp)
 
+    vrp.name = vrp.name || api_key.split('-').first
+
     Filters.filter(vrp)
 
     vrp.configuration.resolution.repetition ||=
@@ -230,7 +232,7 @@ module OptimizerWrapper
         )
       else
         # TODO: Eliminate the points which has no feasible vehicle or service
-        vrp.compute_matrix(job, &block)
+        vrp.compute_matrix(job, vrp.name, &block)
 
         config[:services][service].check_distances(vrp, unfeasible_services)
 

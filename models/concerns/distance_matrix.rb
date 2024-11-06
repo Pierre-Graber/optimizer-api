@@ -19,8 +19,8 @@
 module DistanceMatrix
   extend ActiveSupport::Concern
 
-  def compute_matrix(job_id = nil, &block)
-    compute_need_matrix(job_id, &block)
+  def compute_matrix(job_id = nil, name = nil, &block)
+    compute_need_matrix(job_id, name, &block)
   end
 
   private
@@ -33,7 +33,7 @@ module DistanceMatrix
     ].compact
   end
 
-  def compute_need_matrix(job_id = nil, &block)
+  def compute_need_matrix(job_id = nil, name = nil,  &block)
     vrp_need_matrix = compute_vrp_need_matrix
     need_matrix =
       vehicles.collect{ |vehicle| [vehicle, vehicle.dimensions] }.select{ |vehicle, dimensions|
@@ -56,12 +56,12 @@ module DistanceMatrix
 
       i = 0
       uniq_need_matrix = Hash[uniq_need_matrix.collect{ |mode, dimensions, options|
-        block&.call(nil, i += 1, uniq_need_matrix.size, 'compute matrix', nil, nil, nil)
+        block&.call(name, i += 1, uniq_need_matrix.size, 'compute matrix', nil, nil, nil)
         lats = matrix_points.map{ |pt| pt[0] }.sort
         lons = matrix_points.map{ |pt| pt[1] }.sort
         dist = distance(lats.last, lons.last, lats.first, lons.first)
         # set matrix_time and matrix_distance depending of dimensions order
-        log "matrix computation #{matrix_points.size}x#{matrix_points.size} (#{dist} km) "\
+        log "matrix computation #{matrix_points.size}x#{matrix_points.size} "\
             "-- #{services.size} services, #{vehicles.size} vehicles"
 
         # Api::V01::APIBase.dump_vrp_dir.write(
@@ -71,7 +71,7 @@ module DistanceMatrix
 
         tic = Time.now
         router_matrices = router.matrix(OptimizerWrapper.config[:router][:url],
-                                        mode, dimensions, matrix_points, matrix_points, options)
+                                        mode, dimensions, matrix_points, matrix_points, options, name)
         log "matrix computed in #{(Time.now - tic).round(2)} seconds"
         m = Models::Matrix.create(
           time: (router_matrices[dimensions.index(:time)] if dimensions.index(:time)),
