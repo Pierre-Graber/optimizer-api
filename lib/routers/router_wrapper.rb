@@ -154,7 +154,6 @@ module Routers
     
       request = @cache_request.read(key)
       if !request
-        resource = RestClient::Resource.new(url + '/matrix.json', timeout: nil)
         max_retries = 3
         retries = 0
         router_version = "v1"
@@ -167,18 +166,26 @@ module Routers
             :secret_id => ENV["ROUTER_2_SECRET_ID"]
           }
           url = ENV["ROUTER_2_URL"] || "https://router.dev.woopit.fr"
+          resource = RestClient::Resource.new(url + '/matrix', timeout: nil)
         else 
+          resource = RestClient::Resource.new(url + '/matrix.json', timeout: nil)
           headers = {}
         end
     
         begin
           name = name.to_s.split(/[_ ]/).first
           log "Calling Router #{router_version} with asset #{name}"
-          request = resource.post(params(mode, dimensions.join('_'), options).merge({
+        
+          query_params = {
             src: row.flatten.join(','),
             dst: row != column ? column.flatten.join(',') : nil,
-            asset: name
-          }.compact),headers) do |response, _request, result, &_block|
+            asset: name,
+            mode: mode,
+            dimensions: dimensions.join('_'),
+            options: options
+          }.compact
+        
+          request = resource.get(params(query_params), headers) do |response, _request, result, &_block|
             case response.code
             when 200
               response
